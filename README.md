@@ -94,3 +94,9 @@ Su papel en la estrategia contra la extorsión es por otra vía: el registro de 
 
 1. Percepción sobre los principales temas que afectan
 a las unidades económicas (2018-2026) por sector económico.
+
+- Líneas en vez de barras. Con 5 ediciones lo que importa es la tendencia, y las barras agrupadas por año la esconden. Pon el año en el eje x, el porcentaje en y y una línea por tema.
+
+- Recorta temas. Quédate con 4 o 5 (inseguridad, falta de apoyos, poder adquisitivo, impuestos, corrupción) o resalta uno y deja el resto en gris. Por ejemplo, inseguridad en color y los demás tenues, con etiquetas al final de cada línea en lugar de leyenda.
+
+- Tres paneles en fila (facet_wrap(~ sector, nrow = 1)) con el mismo eje y para que se comparen entre sectores.
