@@ -48,6 +48,16 @@ Está definida por las **unidades económicas** del país con instalaciones fija
 
 2. **Percepción de inseguridad** (el 71.2% que considera insegura su entidad o el 54.8% que se siente insegura en carreteras) se mide al momento del levantamiento, es decir, en 2026.
 
+### Desagregación sectorial
+
+Permite obtener estimaciones por grupo de sectores de actividad económica, según el SCIAN 2023, integrados de la siguiente forma:
+
+| Grupo de sectores | Actividades que incluye |
+|-------------------|-------------------------|
+| **Industria** | Minería, electricidad, suministro de agua y gas, construcción y manufacturas |
+| **Comercio** | Comercio al por mayor y comercio al por menor |
+| **Servicios** | Todos los servicios privados, incluyendo transportes |
+
 ### Cobertura temática
 
 1. **Percepción sobre seguridad pública**
@@ -79,3 +89,8 @@ Lo central para política pública es que establece un tipo penal básico de ext
 2. Involucramiento de la ATDT desde enero de 2026.
 
 Su papel en la estrategia contra la extorsión es por otra vía: el registro de líneas móviles que prevé la Ley en Materia de Telecomunicaciones y Radiodifusión. La ATDT, junto con Telcel, Movistar, AT&T, Bait y Altán, arrancó un piloto de registro de usuarios de telefonía móvil para combatir la extorsión, fraudes y otros delitos cometidos por teléfono. Después, desde enero todas las líneas móviles debían estar asociadas a una persona física o moral, y Peña Merino informó que iban 68 millones de líneas vinculadas.
+
+## Ideas de Slides
+
+1. Percepción sobre los principales temas que afectan
+a las unidades económicas (2018-2026) por sector económico.

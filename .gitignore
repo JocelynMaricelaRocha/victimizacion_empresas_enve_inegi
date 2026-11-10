@@ -1,0 +1,3 @@
+# Ignoramos contenido de la carpeta input
+input/*
+!input/.gitkeep
