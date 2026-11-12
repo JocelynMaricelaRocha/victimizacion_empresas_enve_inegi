@@ -24,7 +24,7 @@ SCRIPT_PY         <- file.path(RAIZ, "scripts", "2_graficas_enve.py")
 CARPETA_TABULADOS <- file.path(RAIZ, "output", "tabulados")
 CARPETA_GRAFICAS  <- "graficas"           # relativo a output/ (así guarda Pabloplot)
 MANIFIESTO        <- file.path(CARPETA_TABULADOS, "manifiesto_graficas.csv")
-SOLO_SLIDES       <- c(4)                  # p. ej. c(1, 2) para rehacer solo esas; NULL = todas
+SOLO_SLIDES       <- c(2.5)                  # p. ej. c(1, 2) para rehacer solo esas; NULL = todas
 
 # VALIDACIONES _______________ -----
 if (!file.exists(SCRIPT_PY) || !dir.exists(DIR_FUNCIONES)) {

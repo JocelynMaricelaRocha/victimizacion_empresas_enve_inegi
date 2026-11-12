@@ -143,6 +143,10 @@ tamanio_slide_2_5 <- extorsiones_por_tamanio |>
     ) |>
     arrange(orden_tamanio, orden_delito)
 
+# Eliminemos la categoría de tipo_de_delito == "Extorsión" de tamanio_slide_2_5
+tamanio_slide_2_5 <- tamanio_slide_2_5 |> 
+    filter(!(tamanio_empresa == "Grande" & tipo_de_delito == "Extorsión"))
+
 write_excel_csv(tamanio_slide_2_5,
                 file.path(CARPETA_TABULADOS, "slide_2_5_delitos_por_tamanio.csv"))
 
