@@ -24,7 +24,7 @@ SCRIPT_PY         <- file.path(RAIZ, "scripts", "2_graficas_enve.py")
 CARPETA_TABULADOS <- file.path(RAIZ, "output", "tabulados")
 CARPETA_GRAFICAS  <- "graficas"           # relativo a output/ (así guarda Pabloplot)
 MANIFIESTO        <- file.path(CARPETA_TABULADOS, "manifiesto_graficas.csv")
-SOLO_SLIDES       <- NULL                 # p. ej. c(1, 2) para rehacer solo esas; NULL = todas
+SOLO_SLIDES       <- c(4)                  # p. ej. c(1, 2) para rehacer solo esas; NULL = todas
 
 # VALIDACIONES _______________ -----
 if (!file.exists(SCRIPT_PY) || !dir.exists(DIR_FUNCIONES)) {
@@ -50,8 +50,42 @@ manifiesto_slide_1 <- crossing(
         grafica  = glue("{CARPETA_GRAFICAS}/slide_1/slide_1_{tipo}_{slug(tipo_de_delito)}")
     )
 
-manifiesto <- bind_rows(manifiesto_slide_1) |>
-    select(slide, funcion, grafica, tabulado, tipo, tipo_de_delito)
+manifiesto_slide_2 <- tibble(
+    slide          = 2L,
+    funcion        = "barras_violencia_slide_2",
+    tipo           = NA_character_,
+    tipo_de_delito = "Extorsión",
+    tabulado       = file.path(CARPETA_TABULADOS, "slide_2_violencia_extorsion.csv"),
+    grafica        = glue("{CARPETA_GRAFICAS}/slide_2/slide_2_violencia_{slug(tipo_de_delito)}")
+)
+
+manifiesto_slide_2_5 <- tibble(
+    slide          = 2.5,
+    funcion        = "barras_tamanio_slide_2_5",
+    tipo           = NA_character_,
+    tipo_de_delito = NA_character_,
+    tabulado       = file.path(CARPETA_TABULADOS, "slide_2_5_delitos_por_tamanio.csv"),
+    grafica        = glue("{CARPETA_GRAFICAS}/slide_2_5/slide_2_5_delitos_por_tamanio")
+)
+
+manifiesto_slide_3 <- tibble(
+    slide    = 3,
+    funcion  = "flechas_percepcion_slide_3",
+    panel    = 1:2,                   # 16 entidades por gráfica
+    tabulado = file.path(CARPETA_TABULADOS, "slide_3_percepcion_inseguridad.csv"),
+    grafica  = glue("{CARPETA_GRAFICAS}/slide_3/slide_3_percepcion_inseguridad_{panel}")
+)
+
+manifiesto_slide_4 <- tibble(
+    slide    = 4,
+    funcion  = "lineas_costos_slide_4",
+    tabulado = file.path(CARPETA_TABULADOS, "slide_4_costos_promedio.csv"),
+    grafica  = glue("{CARPETA_GRAFICAS}/slide_4/slide_4_costos_promedio")
+)
+
+manifiesto <- bind_rows(manifiesto_slide_1, manifiesto_slide_2, manifiesto_slide_2_5,
+                        manifiesto_slide_3, manifiesto_slide_4) |>
+    select(slide, funcion, grafica, tabulado, tipo, tipo_de_delito, panel)
 
 if (!is.null(SOLO_SLIDES)) manifiesto <- filter(manifiesto, slide %in% SOLO_SLIDES)
 

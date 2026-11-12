@@ -49,46 +49,86 @@ leer_csv_robusto <- function(ruta) {
                                     ~ stringr::str_squish(quitar_notas_al_pie(.x))))
 }
 
-#' Separa los tabulados INEGI con formato "Entidad federativa_Tipo de delito":
-#' bloques que inician con el nombre de la entidad (fila con el total) seguidos
-#' de los delitos y separados por una fila de NAs.
-#' Devuelve: entidad_federativa | tipo_de_delito | <columnas de valores (numéricas)>.
-#' La fila de la entidad queda con tipo_de_delito = "Total".
-#' La entidad se identifica por estructura (primera fila de cada bloque) y se
-#' valida contra `nombres_entidades` (acepta nombres cortos del catálogo, p. ej.
-#' "Coahuila" valida "Coahuila de Zaragoza").
-separar_entidad_delito <- function(df, nombres_entidades,
-                                   nacional = "Estados Unidos Mexicanos") {
+#' Separa tabulados INEGI con formato "<Dimensión>_Tipo de delito": bloques que
+#' inician con el nombre de la categoría (fila con el total) seguidos de los
+#' delitos y separados por una fila de NAs. Sirve para entidad federativa,
+#' tamaño de empresa, sector, etc.
+#' Devuelve: <col_bloque> | tipo_de_delito | <columnas de valores (numéricas)>.
+#' La fila de la categoría queda con tipo_de_delito = "Total".
+#' La categoría se identifica por estructura (primera fila de cada bloque) y, si
+#' se da `categorias`, se valida contra ellas (acepta nombres cortos: "Coahuila"
+#' valida "Coahuila de Zaragoza"). `nacional` también se acepta como bloque.
+separar_bloques <- function(df, col_bloque, categorias = NULL,
+                            nacional = "Estados Unidos Mexicanos") {
     col_etq <- names(df)[1]
 
     out <- df |>
         dplyr::rename(etiqueta = dplyr::all_of(col_etq)) |>
         dplyr::mutate(
-            vacia      = is.na(etiqueta),
-            es_entidad = !vacia & (dplyr::row_number() == 1 | dplyr::lag(vacia, default = TRUE)),
-            entidad_federativa = dplyr::if_else(es_entidad, etiqueta, NA_character_),
-            tipo_de_delito     = dplyr::if_else(es_entidad, "Total", etiqueta)
+            vacia    = is.na(etiqueta),
+            es_bloque = !vacia & (dplyr::row_number() == 1 | dplyr::lag(vacia, default = TRUE)),
+            !!col_bloque    := dplyr::if_else(es_bloque, etiqueta, NA_character_),
+            tipo_de_delito   = dplyr::if_else(es_bloque, "Total", etiqueta)
         ) |>
-        tidyr::fill(entidad_federativa, .direction = "down") |>
+        tidyr::fill(dplyr::all_of(col_bloque), .direction = "down") |>
         dplyr::filter(!vacia) |>
-        dplyr::select(entidad_federativa, tipo_de_delito, dplyr::everything(),
-                      -etiqueta, -vacia, -es_entidad) |>
-        dplyr::mutate(dplyr::across(-c(entidad_federativa, tipo_de_delito), as.numeric))
+        dplyr::select(dplyr::all_of(col_bloque), tipo_de_delito, dplyr::everything(),
+                      -etiqueta, -vacia, -es_bloque)
 
-    # Validación contra el catálogo
-    ents   <- unique(out$entidad_federativa)
-    cat_n  <- normalizar(c(nacional, nombres_entidades))
-    ok     <- vapply(normalizar(ents), function(e) any(startsWith(e, cat_n)), logical(1))
-    sin_ent <- setdiff(nombres_entidades,
-                       nombres_entidades[vapply(normalizar(nombres_entidades),
-                                                function(c) any(startsWith(normalizar(ents), c)),
-                                                logical(1))])
-    if (!all(ok) || length(sin_ent) > 0) {
-        warning("Revisar entidades.\n  Bloques que no están en el catálogo: ",
-                paste(ents[!ok], collapse = ", "),
-                "\n  Entidades del catálogo sin bloque: ", paste(sin_ent, collapse = ", "))
+    # Valores que no son número (p. ej. "11,218,179"): se avisa en vez de
+    # convertirlos en NA en silencio.
+    cols_valor <- setdiff(names(out), c(col_bloque, "tipo_de_delito"))
+    for (col in cols_valor) {
+        x <- out[[col]]
+        num <- suppressWarnings(a_numero(x))
+        malos <- !is.na(x) & is.na(num)
+        if (any(malos)) {
+            warning("Valores no numéricos en '", col, "' (quedan como NA):\n  ",
+                    paste0(out[[col_bloque]][malos], " / ", out$tipo_de_delito[malos],
+                           ": \"", x[malos], "\"", collapse = "\n  "), call. = FALSE)
+        }
+        out[[col]] <- num
+    }
+
+    # Validación contra las categorías esperadas
+    if (!is.null(categorias)) {
+        bloques <- unique(out[[col_bloque]])
+        esperadas_n <- normalizar(c(nacional, categorias))
+        ok <- vapply(normalizar(bloques), function(e) any(startsWith(e, esperadas_n)), logical(1))
+        sin_bloque <- categorias[!vapply(normalizar(categorias),
+                                         function(c) any(startsWith(normalizar(bloques), c)),
+                                         logical(1))]
+        if (!all(ok) || length(sin_bloque) > 0) {
+            warning("Revisar '", col_bloque, "'.\n  Bloques que no están en las categorías: ",
+                    paste(bloques[!ok], collapse = ", "),
+                    "\n  Categorías sin bloque: ", paste(sin_bloque, collapse = ", "), call. = FALSE)
+        }
     }
     out
+}
+
+#' Atajo de separar_bloques() para "Entidad federativa_Tipo de delito".
+separar_entidad_delito <- function(df, nombres_entidades,
+                                   nacional = "Estados Unidos Mexicanos") {
+    separar_bloques(df, col_bloque = "entidad_federativa",
+                    categorias = nombres_entidades, nacional = nacional)
+}
+
+#' Convierte texto a número aceptando comas de miles SOLO cuando no hay
+#' ambigüedad: "786,802.53" -> 786802.53 (comas cada 3 dígitos + punto decimal).
+#' "11,218,179" (sin punto) es ambiguo (¿miles o decimal mal puesto?): queda NA
+#' y se avisa, para revisarlo a mano.
+a_numero <- function(x) {
+    x <- stringr::str_trim(as.character(x))
+    con_miles <- !is.na(x) & stringr::str_detect(x, "^-?\\d{1,3}(,\\d{3})+\\.\\d+$")
+    x[con_miles] <- stringr::str_remove_all(x[con_miles], ",")
+    num <- suppressWarnings(as.numeric(x))
+    malos <- !is.na(x) & x != "" & is.na(num)
+    if (any(malos)) {
+        warning("Valores no numéricos (quedan como NA): ",
+                paste0("\"", unique(x[malos]), "\"", collapse = ", "), call. = FALSE)
+    }
+    num
 }
 
 #' Normaliza texto para comparar (sin acentos, minúsculas, sin espacios extra).
