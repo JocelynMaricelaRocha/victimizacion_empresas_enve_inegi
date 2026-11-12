@@ -94,6 +94,44 @@ separar_entidad_delito <- function(df, nombres_entidades,
 #' Normaliza texto para comparar (sin acentos, minúsculas, sin espacios extra).
 normalizar <- function(x) stringr::str_squish(stringr::str_to_lower(stringi::stri_trans_general(x, "Latin-ASCII")))
 
+#' Texto seguro para nombres de archivo ("Robo/asalto de bienes" -> "robo_asalto_de_bienes").
+slug <- function(x) stringr::str_replace_all(normalizar(x), "[^a-z0-9]+", "_") |>
+    stringr::str_remove_all("^_|_$")
+
+# ————————————————————————————————————————————————————————— #
+# PYTHON (para correr Pabloplot con system2, sin reticulate)
+# ————————————————————————————————————————————————————————— #
+
+#' Lee pares CLAVE=valor de un archivo .env (si existe).
+leer_env <- function(ruta = here::here(".env")) {
+    if (!file.exists(ruta)) return(character(0))
+    lineas <- readLines(ruta, warn = FALSE, encoding = "UTF-8")
+    lineas <- stringr::str_trim(lineas[stringr::str_detect(lineas, "^\\s*[A-Za-z_]+\\s*=")])
+    stats::setNames(stringr::str_remove_all(stringr::str_remove(lineas, "^[^=]+=\\s*"), "^[\"']|[\"']$"),
+                    stringr::str_trim(stringr::str_remove(lineas, "=.*$")))
+}
+
+#' Devuelve la ruta del ejecutable real de Python 3.
+#' Orden: PYTHON_PATH del .env, variable de entorno PYTHON_PATH, python3/python/py del PATH.
+#' Cada candidato se prueba ejecutándolo y se usa su sys.executable; así funcionan
+#' los alias de WindowsApps del Python Install Manager y se descarta el alias
+#' vacío de Microsoft Store (que no corre).
+encontrar_python <- function() {
+    candidatos <- c(leer_env()["PYTHON_PATH"], Sys.getenv("PYTHON_PATH"),
+                    Sys.which("python3"), Sys.which("python"), Sys.which("py"))
+    candidatos <- unique(candidatos[!is.na(candidatos) & candidatos != ""])
+    for (py in candidatos) {
+        exe <- suppressWarnings(tryCatch(
+            system2(py, c("-c", shQuote("import sys; print(sys.version_info[0]); print(sys.executable)")),
+                    stdout = TRUE, stderr = FALSE),
+            error = function(e) character(0)))
+        if (length(exe) >= 2 && exe[1] == "3" && file.exists(exe[2])) {
+            return(normalizePath(exe[2], winslash = "/"))
+        }
+    }
+    stop("No encontré Python 3. Instálalo (python.org) o pon su ruta en .env como PYTHON_PATH=...")
+}
+
 # glue() por defecto recorta el salto de línea final; aquí se conserva para
 # que los mensajes de consola no queden pegados.
 glue <- function(..., .envir = parent.frame(), .trim = FALSE) glue::glue(..., .envir = .envir, .trim = .trim)

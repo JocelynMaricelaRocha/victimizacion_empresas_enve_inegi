@@ -12,7 +12,7 @@ import subprocess
 from matplotlib.patches import Patch
 import os
 
-from funciones import limpiar_svg_con_scour, formato_fechas, get_text_color_for_bg, unir_barras, num_decimales, elimina_ceros_no_significativos, cambiar_color
+from funciones import limpiar_svg_con_scour, formato_fechas, get_text_color_for_bg, unir_barras, num_decimales, elimina_ceros_no_significativos, cambiar_color, agregar_saltos_linea
 import matplotlib.patheffects as path_effects 
 
 
@@ -46,6 +46,7 @@ def barras_horizontales(
     peso_porce_barra='bold',  # Grosor de letra para porcentajes dentro de las barras
     color_porce_barra=None,     # Color de letra para porcentajes dentro de las barras
     valor_barra=True,           # Mostrar valor numérico en la barra
+    simbolo_negativo_barra=False, # Si es True, agrega el signo negativo al valor dentro de las barras negativas.
     porce_barra=False,           # Mostrar porcentaje en la barra
     porce_al_lado=True,         # Mostrar porcentaje al lado del valor dentro de la barra
     porce_diver=False,          # Porcentaje respecto a suma absoluta (divergente)
@@ -61,20 +62,20 @@ def barras_horizontales(
     peso_borde_capsu=1.8,     # Grosor del borde de la cápsula
     curvatura_capsu=0.7,         # Redondez de las cápsulas (float, 0 a 1)
     quitar_capsu=False,         # Quitar la cápsula y deja solo el valor dentro de la ella.
-    activar_cambiar_color=True, # Agrega un contorno al texto si el color del texto y el fondo son muy similares
+    activar_cambiar_color=True, # Agrega un contorno o cambia el color al texto si el color del texto y el fondo son muy similares
+    opcion_contraste="relleno", # Opción para ajustar el contraste del texto ('relleno' para cambiar color, 'margen' para agregar contorno)
     capsu_cero=True,            # Mostrar cápsula aunque el valor sea cero
     asignar_etiquetas=None,     # Columna del dataframe df con las nuevas etiquetas que sustituiran las que se encuentran en la parte superior de las barras.
     alinear_capsu=True,        # Alinear la cápsula verticalmente, en la misma dirección de las barras. 
     ajustar_pos_capsu=0.00,      # Ajusta la posición de la cápsula respecto a la barra.
     ajustar_pos_capsu_areamin=0.026,   # Desplazamiento extra para la cápsula cuando hay etiquetas fuera.
     simbolo_negativo_capsu=False, # Si es True, agrega el signo negativo a las cápsulas de valores negativos.
+    simbolo_porce_capsu=False,  # Añadir símbolo de porcentaje a los valores dentro de las cápsulas
 
     # --- OCULTAR ETIQUETAS CUANDO LAS BARRAS SON MUY PEQUEÑAS ---
     areamin=0,               # Área mínima para mostrar texto en barra
     opcion_areamin='fuera', # Opción para mostrar texto fuera o no mostrarlo al usar areamin ('sin etiquetas', 'fuera')
     ajustar_sep_valor_barra=1.0, # Multiplicador para el espaciado entre etiquetas desplazadas (fuera)
-    color_valor_barra_fuera=None, # Color del texto de los valores desplazados fuera de la barra. Acepta un color fijo (str) o un dict {nombre_columna: color} para asignar por categoría. Si es None (o la columna no está en el dict), usa el color de la barra correspondiente.
-    color_contorno_valor_barra=None, # Color fijo del contorno (stroke) de los valores desplazados fuera de la barra. Si es None, se calcula automáticamente según el fondo.
 
     # --- PORCENTAJES TOTALES ---
     porce_total=False,           # Muestra el valor del porcentaje respecto al total general arriba de la capsula
@@ -100,7 +101,7 @@ def barras_horizontales(
     espacio_inicio=0,           # Espacio extra al inicio del eje Y
     nombre_ejey=None,          # Nombre del eje Y
     tam_nombre_ejey=14,  # Tamaño de letra para nombre del eje Y
-    peso_nombre_ejey='medium', # Grosor de letra para nombre del eje Y (posibles valores: 'light', 'normal', 'medium', 'semibold', 'bold', 'heavy', 'black')
+    peso_nombre_ejey='medium', # Grosor de letra para nombre del eje Y
     color_nombre_ejey='#434343', # Color de letra para nombre del eje Y.
     sustituir_valor_ejey=None,   # Lista para sustituir etiquetas del eje Y
     orientacion_valor_ejey=0,    # Grados de inclinación de etiquetas eje Y (ej. 0, 45, 90)
@@ -109,6 +110,8 @@ def barras_horizontales(
     color_resaltado_ejey="#a3173e", # Color para el resaltado de etiquetas
     color_borde_resaltado_ejey='none',  # Color del borde de resaltado de etiquetas
     ejey_der=False,             # Colocar el eje Y a la derecha
+    saltos_linea_cada_x_palabras=4, # Salto de linea cada X palabras en ejey
+    truncar_a_x_palabras=None,    # Trunca el texto del eje Y a un número de palabras, añadiendo '...' al final.
 
     # --- EJE X (VALORES) ---
     tam_valor_ejex=14,          # Tamaño de letra para etiquetas eje X
@@ -131,12 +134,6 @@ def barras_horizontales(
     colores_lineas=None, # Lista de colores para las líneas
     capsu_final_lineas=False,     # Mostrar cápsula con el valor al final de cada línea
     espacio_entre_grupos=0.0,   # Espaciado adicional entre grupos de barras
-
-    # ---- GAURDADO Y VISUALIZACIÓN -----
-    guardar_fig=False,           # Guardar la figura en disco
-    mostrar_fig=True,           # Mostrar la figura en pantalla
-    svg_trazos=False,           # True: texto del SVG como trazos (no depende de la fuente instalada)
-    tamano_exacto=False,        # True: la imagen final mide exactamente ancho x alto (cm)
 ):
     """
     Genera un gráfico de barras horizontales (apiladas si hay múltiples columnas) altamente personalizable.
@@ -197,6 +194,7 @@ def barras_horizontales(
     peso_porce_barra (str) : Grosor de la fuente del porcentaje. Puede ser 'light', 'normal', 'medium', 'semibold', 'bold', 'heavy', 'black'.
     color_porce_barra (str/None) : Color de la fuente del porcentaje.
     valor_barra (bool) : Muestra el valor numérico correspondiente a la barra o al segmento apilado.
+    simbolo_negativo_barra (bool) : Si es True, el valor de las barras (o segmentos) negativos se muestra con signo '-'.
     porce_barra (bool) : Muestra porcentaje respecto a la barra total apilada.
     porce_al_lado (bool) : Pone el porcentaje al lado del valor numérico.
     porce_diver (bool) : Porcentaje calculado respecto a la suma absoluta de los segmentos, útil en casos de barras bidireccionales.
@@ -213,19 +211,19 @@ def barras_horizontales(
     curvatura_capsu (float) : 0 a 1 que redondea los bordes.
     quitar_capsu (bool) : Elimina la cápsula manteniendo solo el número dentro de la cápsula.
     activar_cambiar_color (bool) : Si es True, garantiza que el texto contraste bien con su fondo interior.
+    opcion_contraste (str) : 'relleno' para cambiar el color del texto al color más contrastante sin margen, o 'margen' para aplicar un contorno alrededor del texto.
     capsu_cero (bool) : Mostrar cápsula aunque el total sume 0.
     asignar_etiquetas (str) : Columna del DataFrame (nombre) con las nuevas etiquetas para sustituir las mostradas en las cápsulas.
     alinear_capsu (bool) : Alinear la cápsula, siguiendo la dirección de las barras.
     ajustar_pos_capsu (float) : Ajusta la posición horizontal u offset de la cápsula respecto a la barra.
     ajustar_pos_capsu_areamin (float) : Desplazamiento extra de la capsula en aquellas barras donde los valores dentro de la barras tuvieron que ser sacadas de la barra (areamin).
     simbolo_negativo_capsu (bool) : Agregar símbolo negativo a las cápsulas con valor negativo.
+    simbolo_porce_capsu (bool) : Si es True, añade el símbolo de porcentaje a los valores dentro de las cápsulas.
 
     --- OCULTAR ETIQUETAS CUANDO LAS BARRAS SON MUY PEQUEÑAS ---
     areamin (int/float) : Área o tamaño mínimo necesario para mostrar un número dentro de la porción de barra. 
     opcion_areamin (str) : 'fuera' para sacar los números fuera de la barra cuando no haya espacio o 'sin etiquetas' para ocultarlos.
     ajustar_sep_valor_barra (float) : Multiplicador para acomodar las etiquetas que fueron empujadas fuera de la barra.
-    color_valor_barra_fuera (str/dict/None) : Color en HEX para el texto de los valores desplazados fuera de la barra. Puede ser un color fijo (str) o un dict {nombre_columna: color} para definir un color distinto por categoría. Si es None (o la columna no está en el dict), usa el color de relleno de la barra correspondiente.
-    color_contorno_valor_barra (str/None) : Color fijo en HEX para el contorno de los valores desplazados fuera de la barra. Si es None, se calcula automáticamente para contrastar con el fondo.
 
     --- PORCENTAJES TOTALES ---
     porce_total (bool) : Muestra el valor porcentual comparado contra la suma global de todas las barras de la gráfica.
@@ -260,6 +258,8 @@ def barras_horizontales(
     color_resaltado_ejey (str) : Color especial de resaltado.
     color_borde_resaltado_ejey (str) : Color para el borde de texto resaltado.
     ejey_der (bool) : Cambia las etiquetas categorizadas del eje Y hacia el extremo derecho de la visualización.
+    saltos_linea_cada_x_palabras (int): Aplica saltos de línea automáticos a las etiquetas del eje Y cada X palabras.
+    truncar_a_x_palabras (int, optional): Trunca las etiquetas del eje Y a un número máximo de palabras, añadiendo '...' al final. Por defecto es None (sin truncamiento).
 
     --- EJE X (VALORES) ---
     tam_valor_ejex (int/float) : Formato de la escala numérica horizontal (eje X).
@@ -319,7 +319,7 @@ def barras_horizontales(
         'leyenda': {'size': tam_letra_leyenda, 'weight': peso_letra_leyenda, 'color': color_letra_leyenda}
     }
 
-    plt.rcParams['svg.fonttype'] = 'path' if svg_trazos else 'none'
+    plt.rcParams['svg.fonttype'] = 'none'
     current_dir = Path(__file__).resolve().parent
     font_dirs = [current_dir.parent / "0_fonts"]
     font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
@@ -338,6 +338,9 @@ def barras_horizontales(
     # Validación de ascendente.
     if not isinstance(ascendente, bool):
         raise ValueError("El argumento 'ascendente' solo acepta True o False.")
+        
+    if opcion_contraste not in ['relleno', 'margen']:
+        raise ValueError("El argumento 'opcion_contraste' solo acepta 'relleno' o 'margen'.")
         
     df = df.copy()
 
@@ -631,6 +634,17 @@ def barras_horizontales(
         if "__espaciador__" in str(df.index[i]):
             entidades_formateadas[i] = etiquetas_personalizadas.get(df.index[i], "...")
 
+    if truncar_a_x_palabras is not None and isinstance(truncar_a_x_palabras, int) and truncar_a_x_palabras > 0:
+        entidades_truncadas = []
+        for ent in entidades_formateadas:
+            palabras = str(ent).split()
+            if len(palabras) > truncar_a_x_palabras:
+                entidades_truncadas.append(" ".join(palabras[:truncar_a_x_palabras]) + "...")
+            else:
+                entidades_truncadas.append(ent)
+        entidades_formateadas = entidades_truncadas
+
+    entidades_formateadas = [agregar_saltos_linea(str(ent), saltos_linea_cada_x_palabras=saltos_linea_cada_x_palabras) for ent in entidades_formateadas]
     # --- 6. CREACIÓN DE LA FIGURA Y EJES ---
     
     # --- CÁLCULO DE POSICIONES Y AGRUPAMIENTOS (Barras Horizontales) ---
@@ -732,23 +746,25 @@ def barras_horizontales(
     # --- 7. DIBUJO DE BARRAS Y TEXTOS ---
     line_handles, line_labels = [], []
     etiquetas_fuera = [] # Para etiquetas fuera por areamin
+    min_x_plotted = 0
     
     # Usamos enumerate(zip(...)) para tener índice de fila (idx_row) y propiedades calculadas
     for idx_row, (pos, entidad, total_valor, alto_indiv) in enumerate(zip(posiciones, entidades, suma_total, alturas_barras)):
         left_pos, left_neg = 0, 0
         annotations_externas_pos = []
         annotations_externas_neg = []
-        last_non_zero_idx = 0
-        last_non_zero_idx_neg = 0
+        last_non_zero_idx = -1
+        last_non_zero_idx_neg = -1
         
         for i, col in enumerate(columnas_barras):
             current_val = df_plot[col].iloc[idx_row]
-            if current_val == 0: continue
             
             if current_val > 0:
                 last_non_zero_idx = i
-            else:
+            elif current_val < 0:
                 last_non_zero_idx_neg = i
+                
+            if current_val == 0: continue
 
             color_fondo_personalizado = colores_fondo_personalizados.get(entidad)
             color_borde_personalizado = colores_borde_personalizados.get(entidad)
@@ -810,7 +826,8 @@ def barras_horizontales(
                 
                 if not es_texto_personalizado:
                     if valor_barra:
-                        texto_valor = elimina_ceros_no_significativos(formato_decimal.format(abs(current_val)))
+                        prefijo_neg_barra = "-" if simbolo_negativo_barra and current_val < 0 else ""
+                        texto_valor = prefijo_neg_barra + elimina_ceros_no_significativos(formato_decimal.format(abs(current_val)))
                     if porce_barra:
                         texto_porcentaje = f"({abs(porcentaje_valor):.1f}%)" if not porce_al_lado else f"{abs(porcentaje_valor):.1f}%"
 
@@ -825,9 +842,17 @@ def barras_horizontales(
 
                     if activar_cambiar_color:
                         c_bord_val = cambiar_color(text_color_valor, color)
-                        eff_val = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_val)] if c_bord_val else None
                         c_bord_por = cambiar_color(text_color_porcentaje, color)
-                        eff_por = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_por)] if c_bord_por else None
+                        if opcion_contraste == 'margen':
+                            eff_val = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_val)] if c_bord_val else None
+                            eff_por = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_por)] if c_bord_por else None
+                        else:
+                            if c_bord_val:
+                                text_color_valor = c_bord_val
+                            if c_bord_por:
+                                text_color_porcentaje = c_bord_por
+                            eff_val = None
+                            eff_por = None
                     else:
                         eff_val = None
                         eff_por = None
@@ -854,14 +879,9 @@ def barras_horizontales(
                     if not es_texto_personalizado:
                         texto_final = f"{texto_valor} {texto_porcentaje}".strip()
                     
-                    if isinstance(color_valor_barra_fuera, dict):
-                        color_texto_fuera = color_valor_barra_fuera.get(col, color)
-                    else:
-                        color_texto_fuera = color_valor_barra_fuera or color
-
                     annotation_info = {
                         'texto': texto_final,
-                        'color': color_texto_fuera,
+                        'color': color,
                         'font_size': font_config['valor_porcentaje_barra']['size'],
                         'font_weight': font_config['valor_porcentaje_barra']['weight']
                     }
@@ -870,6 +890,18 @@ def barras_horizontales(
                     else:
                         annotations_externas_neg.append(annotation_info)
             # --- FIN DE LA LÓGICA DE ETIQUETAS EXTERNAS ---
+
+        if last_non_zero_idx == -1:
+            for j, c in enumerate(columnas_barras):
+                if df_plot[c].max() > 0:
+                    last_non_zero_idx = j
+            if last_non_zero_idx == -1: last_non_zero_idx = 0
+            
+        if last_non_zero_idx_neg == -1:
+            for j, c in enumerate(columnas_barras):
+                if df_plot[c].min() < 0:
+                    last_non_zero_idx_neg = j
+            if last_non_zero_idx_neg == -1: last_non_zero_idx_neg = 0
 
         # Almacenar las anotaciones de la barra actual
         if annotations_externas_pos or annotations_externas_neg:
@@ -883,7 +915,6 @@ def barras_horizontales(
 
         debe_dibujar_capsu_pos = valor_capsu and "__espaciador__" not in str(entidad)
         
-        is_simple_or_divergent = len(columnas_barras) == 1 or (es_divergente and len(columnas_barras) == 2)  # definido aquí para que exista también en la cápsula negativa
         if debe_dibujar_capsu_pos:
             if es_divergente:
                  # En divergente, dibujar si hay valores positivos, o si capsu_cero es True
@@ -899,8 +930,8 @@ def barras_horizontales(
             if es_divergente:
                 valor_a_mostrar = suma_positivos_por_barra.iloc[idx_row]
 
-            if etiquetas_finales is not None and not pd.isna(etiquetas_finales.iloc[idx_row]):
-                texto_a_mostrar = str(etiquetas_finales.iloc[idx_row])
+            if etiquetas_finales is not None and not pd.isna(etiquetas_finales.iloc[pos]):
+                texto_a_mostrar = str(etiquetas_finales.iloc[pos])
             else:
                 texto_a_mostrar = elimina_ceros_no_significativos(formato_decimal.format(valor_a_mostrar))
             
@@ -912,6 +943,10 @@ def barras_horizontales(
                 pass
 
             if capsu_cero or not es_cero_visual:
+
+                if simbolo_porce_capsu and not "__espaciador__" in str(entidad):
+                     texto_a_mostrar = f"{texto_a_mostrar}%"
+
                 texto_capsula = f"{espacio*2}{texto_a_mostrar}{espacio*2}"
                 base_pos_x = left_pos if es_divergente else (100 if respecto_porce else total_valor)
 
@@ -967,7 +1002,13 @@ def barras_horizontales(
                 
                 if activar_cambiar_color:
                     c_bord_cap = cambiar_color(color_texto_capsula, color_fondo_capsu if not quitar_capsu else (fondo if fondo != 'transparent' else '#ffffff'))
-                    eff_cap = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_cap)] if c_bord_cap else None
+                    if opcion_contraste == 'margen':
+                        eff_cap = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_cap)] if c_bord_cap else None
+                    else:
+                        if c_bord_cap:
+                            color_texto_capsula = c_bord_cap
+                            font_dict['color'] = color_texto_capsula
+                        eff_cap = None
                 else:
                     eff_cap = None
 
@@ -976,12 +1017,17 @@ def barras_horizontales(
                 else:
                     ax.text(pos_x_capsula, pos_y_capsula, texto_a_mostrar, ha=ha_capsula, va=va_capsula, rotation=rotacion_capsula, fontdict=font_dict, path_effects=eff_cap)
 
-        # Mostrar cápsula negativa solo si hay valores negativos
-        if es_divergente and valor_capsu and left_neg < 0:
+        # Mostrar cápsula negativa
+        debe_dibujar_capsu_neg = es_divergente and valor_capsu and "__espaciador__" not in str(entidad)
+        if debe_dibujar_capsu_neg:
+            if left_neg >= 0 and not capsu_cero:
+                debe_dibujar_capsu_neg = False
+
+        if debe_dibujar_capsu_neg:
             valor_negativo_total = suma_negativos_por_barra.iloc[idx_row]
             
             # Agrega el signo "-" manualmente
-            prefijo_neg = "-" if simbolo_negativo_capsu else ""
+            prefijo_neg = "-" if simbolo_negativo_capsu and valor_negativo_total < 0 else ""
             texto_a_mostrar_neg = f"{prefijo_neg}{elimina_ceros_no_significativos(formato_decimal.format(abs(valor_negativo_total)))}"
             
             es_cero_visual_neg = False
@@ -992,6 +1038,10 @@ def barras_horizontales(
                 pass
 
             if capsu_cero or not es_cero_visual_neg:
+
+                if simbolo_porce_capsu and not "__espaciador__" in str(entidad):
+                     texto_a_mostrar_neg = f"{texto_a_mostrar_neg}%"
+
                 texto_capsula_neg = f"{espacio*2}{texto_a_mostrar_neg}{espacio*2}"
                 
                 # --- INICIO: Lógica de desplazamiento de cápsula negativa ---
@@ -1002,6 +1052,7 @@ def barras_horizontales(
                 # --- FIN: Lógica de desplazamiento de cápsula negativa ---
 
                 text_x_pos_neg = left_neg - x_max * ajustar_pos_capsu - desplazamiento_extra_capsula_neg
+                min_x_plotted = min(min_x_plotted, text_x_pos_neg)
                 
                 color_una_barra_capsu_neg = None
                 if is_simple_or_divergent:
@@ -1040,7 +1091,13 @@ def barras_horizontales(
 
                 if activar_cambiar_color:
                     c_bord_cap_neg = cambiar_color(color_texto_capsula_neg, color_fondo_capsu if not quitar_capsu else (fondo if fondo != 'transparent' else '#ffffff'))
-                    eff_cap_neg = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_cap_neg)] if c_bord_cap_neg else None
+                    if opcion_contraste == 'margen':
+                        eff_cap_neg = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_cap_neg)] if c_bord_cap_neg else None
+                    else:
+                        if c_bord_cap_neg:
+                            color_texto_capsula_neg = c_bord_cap_neg
+                            font_dict['color'] = color_texto_capsula_neg
+                        eff_cap_neg = None
                 else:
                     eff_cap_neg = None
 
@@ -1056,18 +1113,20 @@ def barras_horizontales(
                 if not porce_diver: valor_numerador, valor_denominador = suma_absoluta_por_barra.iloc[idx_row], total_general_absoluto
                 else: valor_numerador, valor_denominador = suma_positivos_por_barra.iloc[idx_row], total_general_positivos
             
-            porcentaje = round((valor_numerador / valor_denominador) * 100, 1) if valor_denominador != 0 else 0
+            dec_porce = decimales if decimales is not None else 1
+            porcentaje = (valor_numerador / valor_denominador) * 100 if valor_denominador != 0 else 0
+            porcentaje_str = f"{porcentaje:,.{dec_porce}f}"
             etiqueta_actual = entidades_formateadas[pos]
 
             if resaltar_valor_ejey and etiqueta_actual in resaltar_valor_ejey:
-                texto_a_mostrar = f"{espacio*1}{etiqueta_actual}   {porcentaje}%{espacio*1}"
+                texto_a_mostrar = f"{espacio*1}{etiqueta_actual}   {porcentaje_str}%{espacio*1}"
                 color_texto_resaltado = get_text_color_for_bg(color_resaltado_ejey)
                 bbox_capsula = dict(facecolor=color_resaltado_ejey, edgecolor=color_borde_resaltado_ejey, boxstyle=f"round,pad=0.15,rounding_size={curvatura_capsu}")
                 pos_x_resaltado = x_max * 1.02 if ejey_der else -x_max * 0.02
                 ha_resaltado = 'left' if ejey_der else 'right'
                 ax.text(pos_x_resaltado, pos, texto_a_mostrar, ha=ha_resaltado, va='center', bbox=bbox_capsula, fontdict={'family': font_config['family'], 'size': font_config['porcentaje_total']['size'], 'weight': font_config['porcentaje_total']['weight'], 'color': color_texto_resaltado})
             else:
-                texto_a_mostrar = f"{espacio*1}{porcentaje}%{espacio*1}"
+                texto_a_mostrar = f"{espacio*1}{porcentaje_str}%{espacio*1}"
                 ax.text(0, pos, texto_a_mostrar, ha='left', va='bottom', color=font_config['porcentaje_total']['color'], fontdict={'family': font_config['family'], 'size': font_config['porcentaje_total']['size'], 'weight': font_config['porcentaje_total']['weight']})
 
         if porce_total:
@@ -1077,7 +1136,9 @@ def barras_horizontales(
                 if not porce_diver: valor_numerador, valor_denominador = suma_absoluta_por_barra.iloc[idx_row], total_general_absoluto
                 else: valor_numerador, valor_denominador = suma_positivos_por_barra.iloc[idx_row], total_general_positivos
 
-            porcentaje = round((valor_numerador / valor_denominador) * 100, 1) if valor_denominador != 0 else 0
+            dec_porce = decimales if decimales is not None else 1
+            porcentaje = (valor_numerador / valor_denominador) * 100 if valor_denominador != 0 else 0
+            porcentaje_str = f"{porcentaje:,.{dec_porce}f}"
             desplazamiento_x = x_max * (0.15 if valor_capsu and not quitar_capsu else 0.08)
             base_pos_x = left_pos if es_divergente else (100 if respecto_porce else total_valor)
             
@@ -1089,7 +1150,7 @@ def barras_horizontales(
             
             desplazamiento_final = base_pos_x + desplazamiento_x + (x_max * ajustar_pos_porce_total) + desplazamiento_extra_porcentaje
             # --- FIN: Lógica de desplazamiento de porcentaje total ---
-            ax.text(desplazamiento_final, pos, f"{porcentaje}%", ha='center', va='center', color=font_config['porcentaje_total']['color'], fontdict={'family': font_config['family'], 'size': font_config['porcentaje_total']['size'], 'weight': font_config['porcentaje_total']['weight']})
+            ax.text(desplazamiento_final, pos, f"{porcentaje_str}%", ha='center', va='center', color=font_config['porcentaje_total']['color'], fontdict={'family': font_config['family'], 'size': font_config['porcentaje_total']['size'], 'weight': font_config['porcentaje_total']['weight']})
 
     # --- DIBUJO DE ETIQUETAS EXTERNAS ---
     if hay_annotations_externas:
@@ -1103,19 +1164,22 @@ def barras_horizontales(
                     # Modifica la siguiente línea para un espaciado no lineal
                     spacing = ((i + 1)**1.5) * (x_max * 0.01) * ajustar_sep_valor_barra
                     
+                    color_annot = annot['color']
                     if activar_cambiar_color:
-                        if color_contorno_valor_barra:
-                            c_bord_ext = color_contorno_valor_barra
+                        color_fondo_efectivo_ext = fondo if fondo != 'transparent' else '#ffffff'
+                        c_bord_ext = cambiar_color(annot['color'], color_fondo_efectivo_ext)
+                        if opcion_contraste == 'margen':
+                            eff_ext = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_ext)] if c_bord_ext else None
                         else:
-                            color_fondo_efectivo_ext = fondo if fondo != 'transparent' else '#ffffff'
-                            c_bord_ext = cambiar_color(annot['color'], color_fondo_efectivo_ext)
-                        eff_ext = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_ext)] if c_bord_ext else None
+                            if c_bord_ext:
+                                color_annot = c_bord_ext
+                            eff_ext = None
                     else:
                         eff_ext = None
                     
                     ax.text(start_x + spacing, pos, annot['texto'],
                             ha='left', va='center',
-                            color=annot['color'],
+                            color=color_annot,
                             fontsize=annot['font_size'],
                             fontweight=annot['font_weight'],
                             path_effects=eff_ext,
@@ -1128,19 +1192,22 @@ def barras_horizontales(
                     # Modifica la siguiente línea para un espaciado no lineal
                     spacing = ((i + 1)**1.5) * (x_max * 0.01) * ajustar_sep_valor_barra
 
+                    color_annot_neg = annot['color']
                     if activar_cambiar_color:
-                        if color_contorno_valor_barra:
-                            c_bord_ext_neg = color_contorno_valor_barra
+                        color_fondo_efectivo_ext_neg = fondo if fondo != 'transparent' else '#ffffff'
+                        c_bord_ext_neg = cambiar_color(annot['color'], color_fondo_efectivo_ext_neg)
+                        if opcion_contraste == 'margen':
+                            eff_ext_neg = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_ext_neg)] if c_bord_ext_neg else None
                         else:
-                            color_fondo_efectivo_ext_neg = fondo if fondo != 'transparent' else '#ffffff'
-                            c_bord_ext_neg = cambiar_color(annot['color'], color_fondo_efectivo_ext_neg)
-                        eff_ext_neg = [path_effects.withStroke(linewidth=1.5, foreground=c_bord_ext_neg)] if c_bord_ext_neg else None
+                            if c_bord_ext_neg:
+                                color_annot_neg = c_bord_ext_neg
+                            eff_ext_neg = None
                     else:
                         eff_ext_neg = None
 
                     ax.text(start_x - spacing, pos, annot['texto'],
                             ha='right', va='center',
-                            color=annot['color'],
+                            color=color_annot_neg,
                             fontsize=annot['font_size'],
                             fontweight=annot['font_weight'],
                             path_effects=eff_ext_neg,
@@ -1241,7 +1308,13 @@ def barras_horizontales(
     
     if limites_ejex and not respecto_porce: ax.set_xlim(limites_ejex)
     else:
-        x_min = (-x_max * (1 + ajustar_sep_izquierda_ejey)) if es_divergente and not respecto_porce else 0
+        if es_divergente and not respecto_porce:
+            espacio_capsulas_izq = (x_max * 0.30) if valor_capsu else (x_max * 0.10)
+            x_min_real = min(0, x_max_neg if pd.notna(x_max_neg) else 0, min_lineas if pd.notna(min_lineas) and min_lineas < 0 else 0, min_x_plotted) * 1.20 - espacio_capsulas_izq
+            x_min = x_min_real - (x_max * ajustar_sep_izquierda_ejey)
+        else:
+            x_min = 0
+            
         x_max_val = 100 if respecto_porce else x_max
         ax.set_xlim(x_min, x_max_val)
         
@@ -1338,14 +1411,25 @@ def barras_horizontales(
     if es_divergente and not respecto_porce: ax.axvline(0, color='black', linewidth=1)
 
     # --- 9. GUARDADO Y VISUALIZACIÓN ---
-    from funciones import mostrar_guardar_figura
+    os.makedirs("output", exist_ok=True)
+    
+    exacto = True if (ancho is not None or alto is not None) else False
+    if exacto:
+        plt.tight_layout()
+    else:
+        plt.tight_layout()
+        
+    bbox_val = None if exacto else 'tight'
+    base_path = f"output/{nombre}"
+    original_svg_path = f"{base_path}.svg"
+    scour_svg_path = f"{base_path}_scour.svg"
+    plt.savefig(original_svg_path, format='svg', bbox_inches=bbox_val, dpi=300, transparent=(fondo == 'transparent'))
+    plt.savefig(f"{base_path}.png", format='png', bbox_inches=bbox_val, dpi=300, transparent=(fondo == 'transparent'))
 
-    mostrar_guardar_figura(
-        fig=fig,
-        ax=ax,
-        nombre_df=nombre,
-        guardar_fig=guardar_fig,
-        mostrar_fig=mostrar_fig,
-        limpiar_svg_con_scour=True,
-        exact_dim=tamano_exacto
-    )
+    try:
+        limpiar_svg_con_scour(original_svg_path, scour_svg_path)
+        os.remove(original_svg_path)
+    except Exception as e:
+        print(f"Error al optimizar o eliminar el SVG: {e}")
+
+    plt.show()
